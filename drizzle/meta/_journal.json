@@ -1,0 +1,27 @@
+{
+  "version": "1",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1770879183650,
+      "tag": "0000_rich_stick",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771069238004,
+      "tag": "0001_dazzling_annihilus",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772694275145,
+      "tag": "0002_vengeful_jigsaw",
+      "breakpoints": true
+    }
+  ]
+}

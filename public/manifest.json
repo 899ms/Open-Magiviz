@@ -1,0 +1,81 @@
+{
+  "name": "Magiviz - 创意一键成片，释放无限影视想象力",
+  "short_name": "Magiviz",
+  "description": "Magiviz是AI驱动的智能视频创作平台。从创意到成品，只需一键生成。支持好莱坞影视、动漫、故事剧情、广告、科普等各类视频内容。",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#E6A37A",
+  "scope": "/",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["productivity", "business", "utilities", "entertainment"],
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Magiviz 视频创作平台"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "视频创作",
+      "short_name": "创作",
+      "description": "开始AI视频创作",
+      "url": "/zh#features",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "创作工具",
+      "short_name": "工具",
+      "description": "探索AI创作工具",
+      "url": "/zh#pricing",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "创作教程",
+      "short_name": "教程",
+      "description": "学习视频创作技巧",
+      "url": "/zh/blog",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
