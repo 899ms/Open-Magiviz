@@ -88,7 +88,7 @@ Magiviz 是一款 AI 驱动的智能视频创作平台，让每个人都能轻�
 
 - 输入：用户提示词、时长、比例、视频风格、视频模型、参考图
 - 调 `generate-story-details` 生成结构化 JSON：标题、场景列表、角色列表（含主角描写与分镜/视频提示词）
-- 内置分段时长规则：根据 `videoModel` 决定每段时长（Veo 固定 8s；Seedance 2.5 支持 4-30s；Seedance 2.0 系列 4-15s；Wan 2-15s 等）
+- 内置分段时长规则：根据 `videoModel` 决定每段时长（Veo 固定 8s；Seedance 2.5 支持 4-30s；Seedance 2.0 系列 4-15s；Wan 3.0 支持 2-30s 等）
 - 解析时使用 `tryParsePossiblyMalformedJson` 兼容 LLM 输出的非严格 JSON
 
 **步骤 2：主角生成（并行）**
@@ -157,7 +157,7 @@ UI 面板提供完整的生成参数控制：
 
 | 参数   | 选项                                                                                                                                                          |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 视频模型 | auto / veo31Lite / veo31Fast / veo31Quality / geminiOmni / seedance25 / seedance2Fast / seedance2Mini / seedance2 / kling3 / happyHorse / wan27 / minimaxH3 |
+| 视频模型 | auto / veo31Lite / veo31Fast / veo31Quality / geminiOmni / seedance25 / seedance2Fast / seedance2Mini / seedance2 / kling3 / happyHorse / wan30 / wan30Prime / minimaxH3 |
 | 生成模式 | auto（普通）/ first-last-frame（首尾帧）                                                                                                                             |
 | 画面比例 | 16:9 / 9:16                                                                                                                                                 |
 | 时长   | auto / 15s / 30s / 60s                                                                                                                                      |
@@ -619,7 +619,8 @@ npm run dev
 | Seedance 2.0 Mini | 7.5  | 15    | 22.5  |
 | Seedance 2.0      | 15   | 30    | 45    |
 | Kling 3.0         | 10   | 20    | 30    |
-| Wan 2.7           | 10   | 20    | 30    |
+| Wan 3.0           | 15   | 30    | 45    |
+| Wan 3.0 Prime     | 20   | 40    | 60    |
 | HappyHorse        | 10   | 20    | 30    |
 | Gemini Omni       | 5    | 10    | 15    |
 | MiniMax H3        | 12.5 | 25    | 37.5  |
@@ -662,6 +663,27 @@ POST /api/ai/generate-story-video
   generationType?: string,       // 生成模式（仅 Veo）
   videoUrls?: string[],         // 参考视频（仅 Seedance）
   audioUrls?: string[]          // 参考音频（仅 Seedance）
+}
+```
+
+
+
+### 批量视频生成
+
+```typescript
+POST /api/ai/generate-story-video
+{
+  scenes: [
+    {
+      id: string,
+      imageUrl: string,
+      prompt: string,
+      aspectRatio?: string,
+      duration?: string,
+      videoModel?: string,
+      ...
+    }
+  ]
 }
 ```
 

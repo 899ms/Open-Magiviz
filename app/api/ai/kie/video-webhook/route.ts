@@ -56,7 +56,7 @@ async function getRawBody(req: NextRequest): Promise<string> {
  *
  * Webhook 配置：
  * - Veo 3.1: 使用 KIE_VEO_WEBHOOK_URL（专用）
- * - Kling 3.0 / Seedance 2.5 / Seedance 2.0 Fast / Seedance 2.0 Mini / Wan 2.7 / HappyHorse / Gemini Omni: 使用 KIE_VIDEO_WEBHOOK_URL 或 KIE_KLING_WEBHOOK_URL（共用）
+ * - Kling 3.0 / Seedance 2.5 / Seedance 2.0 Fast / Seedance 2.0 Mini / Wan 3.0 / Wan 3.0 Prime / HappyHorse / Gemini Omni: 使用 KIE_VIDEO_WEBHOOK_URL 或 KIE_KLING_WEBHOOK_URL（共用）
  *
  * 支持的模型：
  * 1. Veo 3.1 - https://docs.kie.ai/cn/veo3-api/generate-veo-3-video-callbacks（使用专用 webhook）
@@ -66,9 +66,10 @@ async function getRawBody(req: NextRequest): Promise<string> {
  * 5. Seedance 2.0 Mini - bytedance/seedance-2-mini（1.5积分/s，audio on，720p）
  * 6. Kling 3.0 - kling-3.0/video（2积分/s，audio on）
  * 7. Veo 3.1 - veo3_fast（2积分/s）
- * 8. Wan 2.7 - wan/2-7-image-to-video（2积分/s，720p，audio on）
- * 9. HappyHorse - happyhorse-1-1/image-to-video（2积分/s，默认 720p，API 调用 HappyHorse 1.1 接口）
- * 10. Gemini Omni - gemini-omni-video（1积分/s，4/6/8/10s，1080p）
+ * 8. Wan 3.0 - wan/3-0-video（3积分/s，2-30s，默认 720p，audio on）
+ * 9. Wan 3.0 Prime - wan/3-0-video-prime（4积分/s，2-30s，默认 720p，audio on）
+ * 10. HappyHorse - happyhorse-1-1/image-to-video（2积分/s，默认 720p，API 调用 HappyHorse 1.1 接口）
+ * 11. Gemini Omni - gemini-omni-video（1积分/s，4/6/8/10s，1080p）
  *
  * 回调格式 (Veo 3.1):
  * {
@@ -553,7 +554,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'ok',
     service: 'Video Webhook (Universal)',
-    supportedModels: ['kling-3.0', 'veo-3.1', 'seedance-2', 'seedance-2-fast', 'seedance-2-mini', 'wan-2.7', 'happyhorse-1-1'],
+    supportedModels: ['kling-3.0', 'veo-3.1', 'seedance-2', 'seedance-2-fast', 'seedance-2-mini', 'wan-3.0', 'wan-3-0-video-prime', 'happyhorse-1-1'],
     timestamp: new Date().toISOString()
   }, { status: 200 })
 }

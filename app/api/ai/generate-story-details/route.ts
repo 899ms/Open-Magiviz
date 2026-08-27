@@ -177,7 +177,8 @@ export async function POST(request: NextRequest) {
     // videoModel === 'seedance2Mini'   → Seedance 2.0 Mini (1.5积分/s，4-15s 可变，audio on，720p)
     // videoModel === 'seedance2'       → Seedance 2.0    (3积分/s，4-15s 可变，audio on，720p)
     // videoModel === 'kling3'           → Kling 3.0        (2积分/s，3-15s 可变)
-    // videoModel === 'wan27'            → Wan 2.7          (2积分/s，2-15s 可变，audio on，720p)
+    // videoModel === 'wan30'            → Wan 3.0          (3积分/s，2-30s 可变，audio on，默认 720p，支持首尾帧)
+    // videoModel === 'wan30Prime'       → Wan 3.0 Prime     (4积分/s，2-30s 可变，audio on，默认 720p，支持首尾帧)
     // videoModel === 'minimaxH3'        → MiniMax H3       (2.5积分/s，4-15s 可变，支持首尾帧，768p)
     // videoModel === 'veo31Fast' 或 'auto' → Veo 3.1        (2积分/s，固定 8s)
     // videoModel === 'veo31Lite'      → Veo 3.1 Lite    (1积分/s，固定 8s)
@@ -193,7 +194,7 @@ export async function POST(request: NextRequest) {
     const isSeedance2Style = effectiveModel === 'seedance2' || (!effectiveModel && body.videoStyle === 'ads')
     const isSeedanceMiniStyle = effectiveModel === 'seedance2Mini'
     const isKlingStyle = effectiveModel === 'kling3' || (!effectiveModel && body.videoStyle && body.videoStyle !== 'auto' && body.videoStyle !== 'anime' && body.videoStyle !== 'ads')
-    const isWanStyle = effectiveModel === 'wan27'
+    const isWanStyle = effectiveModel === 'wan30' || effectiveModel === 'wan30Prime'
     const isHappyHorseStyle = effectiveModel === 'happyHorse'
     const isGeminiOmniStyle = effectiveModel === 'geminiOmni'
     const isMinimaxH3Style = effectiveModel === 'minimaxH3'
@@ -256,16 +257,16 @@ export async function POST(request: NextRequest) {
 - If user specifies 60s total: design 5-8 scenes with variable durations (e.g., 15s+12s+10s+8s+8s+7s = 60s).
 - Design enough scenes so the total duration approaches the target. Use varied scene lengths naturally to match narrative pacing.`
       : isWanStyle
-      ? `IMPORTANT - Duration rules for Wan 2.7:
-- Wan 2.7 supports any integer duration from 2s to 15s per scene.
+      ? `IMPORTANT - Duration rules for Wan 3.0:
+- Wan 3.0 supports any integer duration from 2s to 30s per scene.
 - Use shorter durations (2-5s) for quick transitions or establishing shots.
-- Use medium durations (6-10s) for standard dialogue/action scenes.
-- Use longer durations (11-15s) for major scenes, emotional beats, or complex action sequences.
+- Use medium durations (6-15s) for standard dialogue/action scenes.
+- Use longer durations (16-30s) for major scenes, emotional beats, or complex action sequences.
 - User duration options: 'auto' (15-30s), 15s, 30s, or 60s.
-- If duration is 'auto', design 2-4 scenes with variable durations (e.g., 12s+8s+6s = 26s).
-- If user specifies 15s total: design 1-2 scenes (e.g., 10s + 5s).
-- If user specifies 30s total: design 2-4 scenes with variable durations (e.g., 12s+8s+6s+4s = 30s).
-- If user specifies 60s total: design 5-8 scenes with variable durations (e.g., 15s+12s+10s+8s+8s+7s = 60s).
+- If duration is 'auto', design 1-3 scenes with variable durations (e.g., 15s+10s = 25s).
+- If user specifies 15s total: design 1 scene of 15s.
+- If user specifies 30s total: design 1-2 scenes (e.g., 20s + 10s or 30s).
+- If user specifies 60s total: design 2-4 scenes with variable durations (e.g., 20s+15s+15s+10s = 60s).
 - Design enough scenes so the total duration approaches the target. Use varied scene lengths naturally to match narrative pacing.`
       : isHappyHorseStyle
       ? `IMPORTANT - Duration rules for HappyHorse:
@@ -661,8 +662,22 @@ Output format: include "userImageUrl" field at the top level of each character o
             duration: nearestMinimaxDuration(rawDuration)
           }
         })
-      } else if (isKlingStyle || isWanStyle || isHappyHorseStyle) {
-        // Kling/Wan/HappyHorse 风格：3-15s
+      } else if (isWanStyle) {
+        // Wan 3.0 风格：2-30s（支持最长 30s 视频）
+        const nearestWanDuration = (seconds: number) => {
+          if (isNaN(seconds) || seconds < 2) return 2
+          if (seconds > 30) return 30
+          return seconds
+        }
+        return scenes.map((s: any) => {
+          const rawDuration = Number(s.duration) || 5
+          return {
+            ...s,
+            duration: nearestWanDuration(rawDuration)
+          }
+        })
+      } else if (isKlingStyle || isHappyHorseStyle) {
+        // Kling/HappyHorse 风格：3-15s
         const nearestKlingDuration = (seconds: number) => {
           if (isNaN(seconds) || seconds < 3) return 3
           if (seconds > 15) return 15

@@ -57,7 +57,8 @@ export function ProjectDetail() {
     seedance2: "videoModelSeedance2",
     kling3: "videoModelKling3",
     happyHorse: "videoModelHappyHorse",
-    wan27: "videoModelWan27",
+    wan30: "videoModelWan30",
+    wan30Prime: "videoModelWan30Prime",
     minimaxH3: "videoModelMinimaxH3",
   }
 
