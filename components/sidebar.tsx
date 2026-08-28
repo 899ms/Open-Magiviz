@@ -4,15 +4,15 @@ import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { Sparkles, Menu, X, Layers } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { PricingDialog } from "@/components/pricing-dialog"
 
 export type SidebarTab = 'create' | 'projects' | 'library'
 
 interface SidebarProps {
-  activeTab: SidebarTab
-  onTabChange: (tab: SidebarTab) => void
+  activeTab?: SidebarTab
+  onTabChange?: (tab: SidebarTab) => void
 }
 
 // 用户信息卡片组件
@@ -96,6 +96,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const { data: session, status } = useSession()
   const [isOpen, setIsOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations("sidebar")
 
@@ -105,9 +106,20 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     library: `/${locale}/library`,
   }
 
+  // 从 URL 推导当前 activeTab，避免依赖外部传值与本地状态不一致
+  const currentTab: SidebarTab = pathname?.endsWith('/projects')
+    ? 'projects'
+    : pathname?.endsWith('/library')
+      ? 'library'
+      : 'create'
+  const effectiveActiveTab = activeTab ?? currentTab
+
   const handleTabClick = (tab: SidebarTab) => {
-    onTabChange(tab)
-    router.replace(routes[tab], { scroll: false })
+    onTabChange?.(tab)
+    // 使用 router.push 而非 replace，确保跨路由段切换时正确跳转
+    if (routes[tab] !== pathname) {
+      router.push(routes[tab], { scroll: false })
+    }
   }
 
   return (
@@ -120,7 +132,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               onClick={() => handleTabClick('create')}
               className={cn(
                 "w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all",
-                activeTab === 'create'
+                effectiveActiveTab === 'create'
                   ? "bg-primary text-primary-foreground shadow-lg"
                   : "hover:bg-muted text-muted-foreground hover:text-foreground"
               )}
@@ -134,7 +146,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               onClick={() => handleTabClick('library')}
               className={cn(
                 "w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all",
-                activeTab === 'library'
+                effectiveActiveTab === 'library'
                   ? "bg-primary text-primary-foreground shadow-lg"
                   : "hover:bg-muted text-muted-foreground hover:text-foreground"
               )}
@@ -148,7 +160,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               onClick={() => handleTabClick('projects')}
               className={cn(
                 "w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all",
-                activeTab === 'projects'
+                effectiveActiveTab === 'projects'
                   ? "bg-primary text-primary-foreground shadow-lg"
                   : "hover:bg-muted text-muted-foreground hover:text-foreground"
               )}
@@ -211,7 +223,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                   }}
                   className={cn(
                     "w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all",
-                    activeTab === 'create'
+                    effectiveActiveTab === 'create'
                       ? "bg-primary text-primary-foreground shadow-lg"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
@@ -228,7 +240,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                   }}
                   className={cn(
                     "w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all",
-                    activeTab === 'library'
+                    effectiveActiveTab === 'library'
                       ? "bg-primary text-primary-foreground shadow-lg"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
@@ -245,7 +257,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
                   }}
                   className={cn(
                     "w-full flex items-center justify-center gap-3 px-4 py-3 rounded-lg transition-all",
-                    activeTab === 'projects'
+                    effectiveActiveTab === 'projects'
                       ? "bg-primary text-primary-foreground shadow-lg"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
