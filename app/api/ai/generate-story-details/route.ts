@@ -17,10 +17,10 @@ import { eq, desc } from 'drizzle-orm'
  *   userImages?: string[]      // 可选：用户上传的图片 URL 列表（每张会被 Gemini 视觉识别为角色图或场景图）
  * }
  *
- * 使用 ZenMux 调用 google/gemini-3-flash-preview 生成剧情详情（情节、场景、角色要点等）。
+ * 使用 ZenMux 调用 google/gemini-3.7-flash 生成结构化剧情 JSON（情节、场景、角色要点等）。
  * 请在环境变量中设置 ZENMUX_API_KEY=<your_key>
  *
- * Gemini 3.5 Flash 支持最大输出 65,536 tokens。
+ * Gemini 3.7 Flash 支持最大输出 65,536 tokens，强制输出结构化 JSON。
  * 每次成功生成扣除1积分，失败不扣积分
  */
 
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ZenMux API key not configured (ZENMUX_API_KEY)' }, { status: 500 })
     }
 
-    const model = 'google/gemini-3.5-flash'
+    const model = 'google/gemini-3.7-flash'
     const maxTokens = typeof body.maxTokens === 'number'
       ? body.maxTokens
       : 65536
@@ -316,18 +316,21 @@ export async function POST(request: NextRequest) {
 - Design enough scenes so the total duration approaches the target. Use varied scene lengths naturally to match narrative pacing.`
 
     // 构建 chat completion 请求体（ZenMux 兼容 OpenAI Chat 接口）
+    // 使用 response_format: { type: "json_object" } 强制模型输出结构化 JSON
     const payload = {
       model,
+      response_format: { type: "json_object" },
       messages: [
         {
           role: 'system',
           content: `You are an assistant that expands a short creative prompt into detailed, structured story information used to drive downstream generation (high-fidelity storyboard images, image-to-video scene generation, and character assets).
 
-Important: always respond using the same language as the user's prompt. If the user writes in Chinese, produce the JSON fields and all textual contents in Chinese; if the user writes in English, produce them in English. Preserve names and technical terms as-is when appropriate.
+CRITICAL JSON OUTPUT CONSTRAINT (VERY IMPORTANT):
+- You MUST output ONLY valid JSON. No markdown, no code blocks, no explanatory text.
+- The JSON must have exactly these top-level keys: "scenes" (array), "characters" (array), "summary" (string).
+- If you cannot generate valid JSON, return: {"error": "description of the error", "scenes": [], "characters": [], "summary": ""}
 
-Requirements:
-- Output MUST be valid JSON only (no explanatory text). If the model cannot produce strict JSON, return an object with an "error" field explaining the issue.
-- Top-level JSON keys: "scenes" (array), "characters" (array), "summary" (string).
+Important: always respond using the same language as the user's prompt. If the user writes in Chinese, produce the JSON fields and all textual contents in Chinese; if the user writes in English, produce them in English. Preserve names and technical terms as-is when appropriate.
 
 CRITICAL - Story Coherence Requirements (VERY IMPORTANT):
 1. SCENE SEQUENCE COHERENCE: Each scene must logically follow from the previous one. The story should have a clear narrative arc: setup -> development -> climax -> resolution. Avoid arbitrary scene transitions.
@@ -505,10 +508,12 @@ Example output (strict JSON):
   "summary": "A crew arrives at a new planet under the commander's leadership, preparing for landing. Later, two friends meet and greet each other warmly."
 }
 
-Now generate the JSON described above based on the user's prompt (the content of the user message).`
+Now generate the JSON described above based on the user's prompt (the content of the user message). REMEMBER: Output ONLY valid JSON - no markdown, no code blocks, no text outside the JSON object.`
         },
         { role: 'user', content: body.prompt },
-        { role: 'system', content: `Target total duration: ${typeof body.duration !== 'undefined' ? body.duration : 'auto'}. Target aspect ratio: ${body.aspectRatio ?? 'unspecified'}. Target video model: ${body.videoModel ?? 'unspecified'}. Target video style: ${body.videoStyle ?? 'unspecified'}.
+        { role: 'system', content: `CRITICAL: Output ONLY valid JSON with no markdown, code blocks, or explanatory text. The JSON must have these exact top-level keys: "scenes" (array), "characters" (array), "summary" (string).
+
+Target total duration: ${typeof body.duration !== 'undefined' ? body.duration : 'auto'}. Target aspect ratio: ${body.aspectRatio ?? 'unspecified'}. Target video model: ${body.videoModel ?? 'unspecified'}. Target video style: ${body.videoStyle ?? 'unspecified'}.
 
 ${durationRuleSystem}
 
@@ -526,7 +531,10 @@ Assignment rules (IMPORTANT):
 - Each user image should be assigned to AT MOST ONE character or scene. Do not duplicate the same userImageUrl across multiple characters/scenes.
 
 Output format: include "userImageUrl" field at the top level of each character or scene object that should be regenerated using the user image as a reference.`
-  : ''}` }
+  : ''}
+
+OUTPUT: Return ONLY valid JSON with no text before or after it.`
+        }
       ],
       max_tokens: maxTokens,
       temperature
