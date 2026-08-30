@@ -16,7 +16,7 @@ import { eq } from 'drizzle-orm'
  *   prompt: string,                      // 必需：视频生成提示词
  *   aspectRatio?: "16:9" | "9:16",       // 可选：画面比例，默认 16:9
  *   duration?: "4s" | "6s" | "8s",       // 可选：视频时长，默认 8s
- *   videoModel?: string,                 // 可选：视频模型（auto, veo31Fast, veo31Lite, veo31Quality, seedance25, seedance2Fast, seedance2Mini, seedance2, kling3, happyHorse, wan27, minimaxH3）
+ *   videoModel?: string,                 // 可选：视频模型（auto, veo31Fast, veo31Lite, veo31Quality, seedance25, seedance2Fast, seedance2Mini, seedance2, kling3, happyHorse, wan30, wan30Prime, minimaxH3）
  *                                              auto: 根据 videoStyle 路由（默认）
  *                                              veo31Fast: Veo 3.1 Fast
  *                                              veo31Lite: Veo 3.1 Lite（1积分/s，性价比最高）
@@ -27,7 +27,8 @@ import { eq } from 'drizzle-orm'
  *                                              seedance2: Seedance 2.0
  *                                              kling3: Kling 3.0
  *                                              happyHorse: HappyHorse（2积分/s，默认 720p，调用 HappyHorse 1.1 接口）
- *                                              wan27: Wan 2.7
+ *                                              wan30: Wan 3.0（3积分/s，2-30s，默认 720p，支持首尾帧，audio on）
+ *                                              wan30Prime: Wan 3.0 Prime（4积分/s，2-30s，默认 720p，支持首尾帧，audio on）
  *                                              minimaxH3: MiniMax H3（2.5积分/s，4-15s，支持首尾帧，768p）
  *   videoStyle?: string,                 // 可选：视频风格（auto, anime, ads, hollywood）
  *                                              auto: 默认路由（→ veo31Fast）
@@ -64,7 +65,8 @@ import { eq } from 'drizzle-orm'
  * - videoModel === 'seedance2' -> Seedance 2.0（3积分/s）
  * - videoModel === 'kling3' -> Kling 3.0（2积分/s）
  * - videoModel === 'happyHorse' -> HappyHorse（2积分/s，默认 720p，调用 HappyHorse 1.1 接口）
- * - videoModel === 'wan27' -> Wan 2.7（2积分/s）
+ * - videoModel === 'wan30' -> Wan 3.0（3积分/s，2-30s，默认 720p，audio on，model=wan/3-0-video）
+ * - videoModel === 'wan30Prime' -> Wan 3.0 Prime（4积分/s，2-30s，默认 720p，audio on，model=wan/3-0-video-prime）
  * - videoModel === 'minimaxH3' -> MiniMax H3（2.5积分/s，4-15s，支持首尾帧，768p）
  * - videoModel === 'auto'（无 videoModel）-> Veo 3.1 Fast（2积分/s）
  * - videoStyle 仅用于增强 prompt（已选模型时）或决定路由（未选模型时）
@@ -95,7 +97,7 @@ const KIE_KLING_DETAIL_URL = "https://api.kie.ai/api/v1/jobs/get"
 const KIE_SEEDANCE_API_URL = "https://api.kie.ai/api/v1/jobs/createTask"
 const KIE_SEEDANCE_DETAIL_URL = "https://api.kie.ai/api/v1/jobs/get"
 
-// Kie.ai Wan 2.7 API 配置
+// Kie.ai Wan 3.0 API 配置（wan 系列已从 2.7 升级至 3.0）
 const KIE_WAN_API_URL = "https://api.kie.ai/api/v1/jobs/createTask"
 const KIE_WAN_DETAIL_URL = "https://api.kie.ai/api/v1/jobs/get"
 
@@ -114,7 +116,7 @@ const KIE_MINIMAX_DETAIL_URL = "https://api.kie.ai/api/v1/jobs/get"
 // Webhook URL - VEO 视频使用专门的环境变量
 const WEBHOOK_URL = process.env.KIE_VEO_WEBHOOK_URL
 
-// Webhook URL - Kling 3.0 / Seedance 2.0 Fast / Wan 2.7 / HappyHorse 共用环境变量
+// Webhook URL - Kling 3.0 / Seedance 2.0 Fast / Wan 3.0 / HappyHorse 共用环境变量
 const KLING_WEBHOOK_URL = process.env.KIE_VIDEO_WEBHOOK_URL || process.env.KIE_KLING_WEBHOOK_URL
 
 /**
@@ -127,7 +129,8 @@ const KLING_WEBHOOK_URL = process.env.KIE_VIDEO_WEBHOOK_URL || process.env.KIE_K
  *   - videoModel='seedance2Mini' -> Seedance 2.0 Mini（1.5积分/s，audio on，720p，model=bytedance/seedance-2-mini）
  *   - videoModel='seedance2' -> Seedance 2.0  (3积分/s，audio on，720p，model=bytedance/seedance-2）
  *   - videoModel='kling3'     -> Kling 3.0（2积分/s）
- *   - videoModel='wan27'      -> Wan 2.7（2积分/s，720p，audio on，model=wan/2-7-image-to-video）
+ *   - videoModel='wan30'      -> Wan 3.0（3积分/s，2-30s，默认 720p，audio on，model=wan/3-0-video）
+ *   - videoModel='wan30Prime' -> Wan 3.0 Prime（4积分/s，2-30s，默认 720p，audio on，model=wan/3-0-video-prime）
  *   - videoModel='minimaxH3'  -> MiniMax H3（2.5积分/s，4-15s，支持首尾帧，768p）
  * videoStyle 回退路由（仅在 videoModel='auto' 时生效）：
  *   - anime -> seedance2Fast（2pts/s）
@@ -154,7 +157,7 @@ async function generateSingleVideo(
   referenceAudioUrls?: string[],
 ): Promise<{ success: boolean; videoUrl?: string; requestId?: string; error?: string }> {
   // videoModel === 'auto' 或未传 → 根据 videoStyle 回退路由
-  const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'happyHorse', 'wan27', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
+  const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'happyHorse', 'wan30', 'wan30Prime', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
   const styleFallbackModel = !effectiveModel
     ? (videoStyle === 'anime' ? 'seedance2Fast' : (videoStyle === 'ads' ? 'seedance2' : (videoStyle && videoStyle !== 'auto' ? 'veo31Fast' : null)))
     : null
@@ -171,8 +174,10 @@ async function generateSingleVideo(
     taskType = 'seedance_2_0_mini_video'
   } else if (routeTo === 'kling3') {
     taskType = 'kling_3_0_video'
-  } else if (routeTo === 'wan27') {
-    taskType = 'wan_2_7_video'
+  } else if (routeTo === 'wan30') {
+    taskType = 'wan_3_0_video'
+  } else if (routeTo === 'wan30Prime') {
+    taskType = 'wan_3_0_prime_video'
   } else if (routeTo === 'veo31Lite') {
     taskType = 'veo_3_1_lite_video'
   } else if (routeTo === 'veo31Quality') {
@@ -198,10 +203,16 @@ async function generateSingleVideo(
     return klingResult
   }
 
-  if (routeTo === 'wan27') {
-    // Wan 支持首尾帧模式
+  if (routeTo === 'wan30') {
+    // Wan 3.0 支持首尾帧模式
     const wanResult = await generateWithWan(imageUrl, prompt, aspectRatio, duration, videoModel, videoStyle, webhookUrl, userId, undefined, projectId, sceneIndex, sceneId, versionId, versionGroupId, additionalImageUrls)
     return wanResult
+  }
+
+  if (routeTo === 'wan30Prime') {
+    // Wan 3.0 Prime 支持首尾帧模式
+    const wanPrimeResult = await generateWithWanPrime(imageUrl, prompt, aspectRatio, duration, videoModel, videoStyle, webhookUrl, userId, undefined, projectId, sceneIndex, sceneId, versionId, versionGroupId, additionalImageUrls)
+    return wanPrimeResult
   }
 
   // HappyHorse - 2积分/s, 默认 720p（API 实际调用 HappyHorse 1.1 接口）
@@ -924,9 +935,10 @@ async function pollSeedanceVideoStatus(
 
 
 /**
- * 使用 Kie.ai Wan 2.7 生成视频（图生视频/首尾帧视频）
- * videoModel='wan27' 时使用此函数（2积分/s，720p，audio on）
+ * 使用 Kie.ai Wan 3.0 生成视频（图生视频/首尾帧视频）
+ * videoModel='wan30' 时使用此函数（3积分/s，2-30s，默认 720p，audio on）
  * 支持首尾帧模式：如果提供了 additionalImageUrls，会使用 first_frame_url + last_frame_url
+ * API 文档: https://docs.kie.ai/cn/market/wan/3-0-video
  */
 async function generateWithWan(
   imageUrl: string,
@@ -953,13 +965,13 @@ async function generateWithWan(
     return { success: false, error: "Prompt is required" }
   }
 
-  // Wan 2.7 支持的画面比例
-  const validAspectRatios = ['1:1', '4:3', '3:4', '16:9', '9:16', '21:9']
+  // Wan 3.0 支持的画面比例（API 期望小写，如 '16:9'，不支持 21:9）
+  const validAspectRatios = ['1:1', '4:3', '3:4', '16:9', '9:16']
   const aspectRatioParam = validAspectRatios.includes(aspectRatio || '') ? aspectRatio! : '16:9'
 
-  // 验证时长 (2-15)
+  // 验证时长 (2-30)
   const durationSeconds = parseInt(String(duration || '5').replace(/s$/i, ''), 10)
-  const durationParam = (!isNaN(durationSeconds) && durationSeconds >= 2 && durationSeconds <= 15)
+  const durationParam = (!isNaN(durationSeconds) && durationSeconds >= 2 && durationSeconds <= 30)
     ? durationSeconds
     : 5
 
@@ -967,17 +979,16 @@ async function generateWithWan(
   const lastFrameUrl = additionalImageUrls?.[0] || ''
 
   const kieRequestBody: any = {
-    model: "wan/2-7-image-to-video",
+    model: "wan/3-0-video",
     input: {
       prompt: prompt,
       first_frame_url: imageUrl,
       last_frame_url: lastFrameUrl || undefined,  // Wan 支持尾帧
-      resolution: "720p",
+      resolution: "720P",                          // 默认 720P（用户要求）
+      aspect_ratio: aspectRatioParam,              // Wan 3.0 字段名为 aspect_ratio
       duration: durationParam,
-      prompt_extend: true,
-      watermark: false,
+      audio: true,                                 // Wan 3.0 开启音频（audio: true）
       nsfw_checker: false,
-      driving_audio_url: "", // 开启音频生成（传空字符串触发自动音频）
     }
   }
 
@@ -992,11 +1003,11 @@ async function generateWithWan(
     kieRequestBody.callBackUrl = finalWebhookUrl
   }
 
-  const taskType = 'wan_2_7_video'
-  const pointsPerSecond = 2
+  const taskType = 'wan_3_0_video'
+  const pointsPerSecond = 3
   const pointsAmount = durationParam * pointsPerSecond
 
-  console.log(`[generate-story-video] [Wan 2.7] 创建视频任务:`, {
+  console.log(`[generate-story-video] [Wan 3.0] 创建视频任务:`, {
     imageUrl: imageUrl.substring(0, 50) + '...',
     lastFrameUrl: lastFrameUrl ? lastFrameUrl.substring(0, 50) + '...' : 'none',
     hasLastFrame: !!lastFrameUrl,
@@ -1004,12 +1015,12 @@ async function generateWithWan(
     aspectRatio: aspectRatioParam,
     duration: durationParam,
     pointsPerSecond,
-    promptExtend: true,
+    resolution: '720P',
     audio: true,
     useWebhook: !!finalWebhookUrl
   })
 
-  // 调用 Kie.ai Wan 2.7 API
+  // 调用 Kie.ai Wan 3.0 API
   const response = await fetch(KIE_WAN_API_URL, {
     method: 'POST',
     headers: {
@@ -1022,7 +1033,7 @@ async function generateWithWan(
   const responseText = await response.text()
 
   if (!response.ok) {
-    console.error(`[generate-story-video] [Wan 2.7] API error:`, response.status, responseText)
+    console.error(`[generate-story-video] [Wan 3.0] API error:`, response.status, responseText)
     return { success: false, error: `API error: ${response.status}` }
   }
 
@@ -1030,24 +1041,24 @@ async function generateWithWan(
   try {
     data = JSON.parse(responseText)
   } catch (e) {
-    console.error(`[generate-story-video] [Wan 2.7] 解析响应失败:`, responseText)
+    console.error(`[generate-story-video] [Wan 3.0] 解析响应失败:`, responseText)
     return { success: false, error: "Invalid API response" }
   }
 
-  console.log(`[generate-story-video] [Wan 2.7] API 响应:`, data)
+  console.log(`[generate-story-video] [Wan 3.0] API 响应:`, data)
 
   if (data.code !== 200) {
-    console.error(`[generate-story-video] [Wan 2.7] 生成失败:`, data.msg)
+    console.error(`[generate-story-video] [Wan 3.0] 生成失败:`, data.msg)
     return { success: false, error: data.msg || "Video generation failed" }
   }
 
   const taskId = data.data?.taskId
   if (!taskId) {
-    console.error(`[generate-story-video] [Wan 2.7] 未返回 taskId:`, data)
+    console.error(`[generate-story-video] [Wan 3.0] 未返回 taskId:`, data)
     return { success: false, error: "No task ID returned" }
   }
 
-  console.log(`[generate-story-video] [Wan 2.7] 任务创建成功:`, { taskId })
+  console.log(`[generate-story-video] [Wan 3.0] 任务创建成功:`, { taskId })
 
   // 存储任务映射（用于 webhook 回调时扣除积分）
   if (userId) {
@@ -1066,9 +1077,9 @@ async function generateWithWan(
         versionGroupId: versionGroupId || null,
         newVersionId: null,
       })
-      console.log(`[generate-story-video] [Wan 2.7] 任务映射已存储:`, { taskId, userId, pointsAmount, projectId, sceneIndex, sceneId, versionId, versionGroupId })
+      console.log(`[generate-story-video] [Wan 3.0] 任务映射已存储:`, { taskId, userId, pointsAmount, projectId, sceneIndex, sceneId, versionId, versionGroupId })
     } catch (error) {
-      console.error(`[generate-story-video] [Wan 2.7] 存储任务映射失败:`, error)
+      console.error(`[generate-story-video] [Wan 3.0] 存储任务映射失败:`, error)
     }
   }
 
@@ -1083,7 +1094,7 @@ async function generateWithWan(
 }
 
 /**
- * 轮询查询 Wan 2.7 视频状态
+ * 轮询查询 Wan 3.0 视频状态
  */
 async function pollWanVideoStatus(
   taskId: string,
@@ -1104,14 +1115,14 @@ async function pollWanVideoStatus(
       })
 
       if (!queryResponse.ok) {
-        console.error(`[generate-story-video] [Wan 2.7] 查询失败:`, queryResponse.status)
+        console.error(`[generate-story-video] [Wan 3.0] 查询失败:`, queryResponse.status)
         retryCount++
         await new Promise(resolve => setTimeout(resolve, 5000))
         continue
       }
 
       const queryData = await queryResponse.json()
-      console.log(`[generate-story-video] [Wan 2.7] 查询状态:`, {
+      console.log(`[generate-story-video] [Wan 3.0] 查询状态:`, {
         taskId,
         code: queryData.code,
         task: queryData.data
@@ -1126,12 +1137,12 @@ async function pollWanVideoStatus(
           const videoUrl = resultUrls[0] || ''
 
           if (videoUrl) {
-            console.log(`[generate-story-video] [Wan 2.7] 视频生成成功:`, { taskId, videoUrl })
+            console.log(`[generate-story-video] [Wan 3.0] 视频生成成功:`, { taskId, videoUrl })
 
             if (userId) {
               try {
                 const durationSeconds = parseInt(duration || '5', 10)
-                const pointsAmount = durationSeconds * 2
+                const pointsAmount = durationSeconds * 3
 
                 await db.update(aiGenerationTasks)
                   .set({
@@ -1147,9 +1158,9 @@ async function pollWanVideoStatus(
                   undefined,
                   PointsAction.GENERATE_STORY_VIDEO
                 )
-                console.log(`[generate-story-video] [Wan 2.7] 用户 ${userId} 成功生成视频（${durationSeconds}秒），扣除 ${pointsAmount} 积分`)
+                console.log(`[generate-story-video] [Wan 3.0] 用户 ${userId} 成功生成视频（${durationSeconds}秒），扣除 ${pointsAmount} 积分`)
               } catch (deductError) {
-                console.error(`[generate-story-video] [Wan 2.7] 扣除积分失败:`, deductError)
+                console.error(`[generate-story-video] [Wan 3.0] 扣除积分失败:`, deductError)
               }
             }
 
@@ -1160,24 +1171,283 @@ async function pollWanVideoStatus(
 
         if (taskStatus === 'FAILED' || taskStatus === 'fail') {
           const errorMsg = taskData.result?.failMsg || taskData.errorMessage || "Video generation failed"
-          console.error(`[generate-story-video] [Wan 2.7] 视频生成失败:`, { taskId, errorMsg })
+          console.error(`[generate-story-video] [Wan 3.0] 视频生成失败:`, { taskId, errorMsg })
           return { success: false, error: errorMsg }
         }
 
         if (taskStatus === 'PENDING' || taskStatus === 'PROCESSING' || taskStatus === 'pending') {
-          console.log(`[generate-story-video] [Wan 2.7] 视频生成中...`, { taskId, status: taskStatus })
+          console.log(`[generate-story-video] [Wan 3.0] 视频生成中...`, { taskId, status: taskStatus })
         }
       }
 
     } catch (queryError) {
-      console.error(`[generate-story-video] [Wan 2.7] 查询出错:`, queryError)
+      console.error(`[generate-story-video] [Wan 3.0] 查询出错:`, queryError)
     }
 
     await new Promise(resolve => setTimeout(resolve, 5000))
     retryCount++
   }
 
-  console.error(`[generate-story-video] [Wan 2.7] 轮询超时:`, { taskId })
+  console.error(`[generate-story-video] [Wan 3.0] 轮询超时:`, { taskId })
+  return { success: false, error: "Video generation timeout" }
+}
+
+
+/**
+ * 使用 Kie.ai Wan 3.0 Prime 生成视频（图生视频/首尾帧视频）
+ * videoModel='wan30Prime' 时使用此函数（4积分/s，2-30s，默认 720P，audio on）
+ * 支持首尾帧模式：如果提供了 additionalImageUrls，会使用 first_frame_url + last_frame_url
+ * API 文档: https://docs.kie.ai/cn/market/wan/3-0-video-prime
+ */
+async function generateWithWanPrime(
+  imageUrl: string,
+  prompt: string,
+  aspectRatio?: string,
+  duration?: string,
+  videoModel?: string,
+  videoStyle?: string,
+  webhookUrl?: string,
+  userId?: string,
+  routeTo?: string,
+  projectId?: string,
+  sceneIndex?: number,
+  sceneId?: string,
+  versionId?: string,
+  versionGroupId?: string,
+  additionalImageUrls?: string[]
+): Promise<{ success: boolean; videoUrl?: string; requestId?: string; error?: string }> {
+  if (!imageUrl || !imageUrl.trim()) {
+    return { success: false, error: "Image URL is required" }
+  }
+
+  if (!prompt || !prompt.trim()) {
+    return { success: false, error: "Prompt is required" }
+  }
+
+  // Wan 3.0 Prime 支持的画面比例（支持 adaptive）
+  const validAspectRatios = ['adaptive', '1:1', '4:3', '3:4', '16:9', '9:16']
+  const aspectRatioParam = validAspectRatios.includes(aspectRatio || '') ? aspectRatio! : '16:9'
+
+  // 验证时长 (2-30)
+  const durationSeconds = parseInt(String(duration || '5').replace(/s$/i, ''), 10)
+  const durationParam = (!isNaN(durationSeconds) && durationSeconds >= 2 && durationSeconds <= 30)
+    ? durationSeconds
+    : 5
+
+  // 获取尾帧图片
+  const lastFrameUrl = additionalImageUrls?.[0] || ''
+
+  const kieRequestBody: any = {
+    model: "wan/3-0-video-prime",
+    input: {
+      prompt: prompt,
+      first_frame_url: imageUrl,
+      last_frame_url: lastFrameUrl || undefined,  // Wan 3.0 Prime 支持尾帧
+      resolution: "720P",                          // 默认 720P（用户要求）
+      aspect_ratio: aspectRatioParam,              // 支持 adaptive
+      duration: durationParam,
+      audio: true,                                 // 开启音频
+      nsfw_checker: false,
+    }
+  }
+
+  // 如果没有尾帧，移除该字段
+  if (!lastFrameUrl) {
+    delete kieRequestBody.input.last_frame_url
+  }
+
+  // 配置 webhook（与 Kling/Seedance 共用环境变量）
+  const finalWebhookUrl = KLING_WEBHOOK_URL || webhookUrl
+  if (finalWebhookUrl) {
+    kieRequestBody.callBackUrl = finalWebhookUrl
+  }
+
+  const taskType = 'wan_3_0_prime_video'
+  const pointsPerSecond = 4
+  const pointsAmount = durationParam * pointsPerSecond
+
+  console.log(`[generate-story-video] [Wan 3.0 Prime] 创建视频任务:`, {
+    imageUrl: imageUrl.substring(0, 50) + '...',
+    lastFrameUrl: lastFrameUrl ? lastFrameUrl.substring(0, 50) + '...' : 'none',
+    hasLastFrame: !!lastFrameUrl,
+    promptLength: prompt.length,
+    aspectRatio: aspectRatioParam,
+    duration: durationParam,
+    pointsPerSecond,
+    resolution: '720P',
+    audio: true,
+    useWebhook: !!finalWebhookUrl
+  })
+
+  // 调用 Kie.ai Wan 3.0 Prime API
+  const response = await fetch(KIE_WAN_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${KIE_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(kieRequestBody)
+  })
+
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    console.error(`[generate-story-video] [Wan 3.0 Prime] API error:`, response.status, responseText)
+    return { success: false, error: `API error: ${response.status}` }
+  }
+
+  let data: any
+  try {
+    data = JSON.parse(responseText)
+  } catch (e) {
+    console.error(`[generate-story-video] [Wan 3.0 Prime] 解析响应失败:`, responseText)
+    return { success: false, error: "Invalid API response" }
+  }
+
+  console.log(`[generate-story-video] [Wan 3.0 Prime] API 响应:`, data)
+
+  if (data.code !== 200) {
+    console.error(`[generate-story-video] [Wan 3.0 Prime] 生成失败:`, data.msg)
+    return { success: false, error: data.msg || "Video generation failed" }
+  }
+
+  const taskId = data.data?.taskId
+  if (!taskId) {
+    console.error(`[generate-story-video] [Wan 3.0 Prime] 未返回 taskId:`, data)
+    return { success: false, error: "No task ID returned" }
+  }
+
+  console.log(`[generate-story-video] [Wan 3.0 Prime] 任务创建成功:`, { taskId })
+
+  // 存储任务映射（用于 webhook 回调时扣除积分）
+  if (userId) {
+    try {
+      await db.insert(aiGenerationTasks).values({
+        id: uuidv4(),
+        taskId: taskId,
+        userId: userId,
+        taskType: taskType,
+        pointsAmount: pointsAmount,
+        pointsDeducted: false,
+        status: 'pending',
+        projectId: projectId || null,
+        versionId: versionId || null,
+        itemId: sceneId ? String(sceneIndex) : null,
+        versionGroupId: versionGroupId || null,
+        newVersionId: null,
+      })
+      console.log(`[generate-story-video] [Wan 3.0 Prime] 任务映射已存储:`, { taskId, userId, pointsAmount, projectId, sceneIndex, sceneId, versionId, versionGroupId })
+    } catch (error) {
+      console.error(`[generate-story-video] [Wan 3.0 Prime] 存储任务映射失败:`, error)
+    }
+  }
+
+  // 判断是否使用 webhook 模式
+  if (finalWebhookUrl) {
+    return { success: true, requestId: taskId }
+  }
+
+  // 轮询模式
+  const result = await pollWanPrimeVideoStatus(taskId, userId, durationParam.toString())
+  return result
+}
+
+/**
+ * 轮询查询 Wan 3.0 Prime 视频状态
+ */
+async function pollWanPrimeVideoStatus(
+  taskId: string,
+  userId?: string,
+  duration?: string
+): Promise<{ success: boolean; videoUrl?: string; requestId?: string; error?: string }> {
+  const maxRetries = 180
+  let retryCount = 0
+
+  while (retryCount < maxRetries) {
+    try {
+      const queryResponse = await fetch(`${KIE_WAN_DETAIL_URL}?taskId=${taskId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${KIE_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!queryResponse.ok) {
+        console.error(`[generate-story-video] [Wan 3.0 Prime] 查询失败:`, queryResponse.status)
+        retryCount++
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        continue
+      }
+
+      const queryData = await queryResponse.json()
+      console.log(`[generate-story-video] [Wan 3.0 Prime] 查询状态:`, {
+        taskId,
+        code: queryData.code,
+        task: queryData.data
+      })
+
+      if (queryData.code === 200 && queryData.data) {
+        const taskData = queryData.data
+        const taskStatus = taskData.taskStatus || taskData.task_status
+
+        if (taskStatus === 'SUCCESS' || taskStatus === 'success') {
+          const resultUrls = taskData.result?.resultUrls || []
+          const videoUrl = resultUrls[0] || ''
+
+          if (videoUrl) {
+            console.log(`[generate-story-video] [Wan 3.0 Prime] 视频生成成功:`, { taskId, videoUrl })
+
+            if (userId) {
+              try {
+                const durationSeconds = parseInt(duration || '5', 10)
+                const pointsAmount = durationSeconds * 4
+
+                await db.update(aiGenerationTasks)
+                  .set({
+                    status: 'success',
+                    pointsDeducted: true,
+                    updatedAt: new Date()
+                  })
+                  .where(eq(aiGenerationTasks.taskId, taskId))
+
+                await deductPoints(
+                  userId,
+                  pointsAmount,
+                  undefined,
+                  PointsAction.GENERATE_STORY_VIDEO
+                )
+                console.log(`[generate-story-video] [Wan 3.0 Prime] 用户 ${userId} 成功生成视频（${durationSeconds}秒），扣除 ${pointsAmount} 积分`)
+              } catch (deductError) {
+                console.error(`[generate-story-video] [Wan 3.0 Prime] 扣除积分失败:`, deductError)
+              }
+            }
+
+            return { success: true, videoUrl, requestId: taskId }
+          }
+          return { success: false, error: "No video URL in result" }
+        }
+
+        if (taskStatus === 'FAILED' || taskStatus === 'fail') {
+          const errorMsg = taskData.result?.failMsg || taskData.errorMessage || "Video generation failed"
+          console.error(`[generate-story-video] [Wan 3.0 Prime] 视频生成失败:`, { taskId, errorMsg })
+          return { success: false, error: errorMsg }
+        }
+
+        if (taskStatus === 'PENDING' || taskStatus === 'PROCESSING' || taskStatus === 'pending') {
+          console.log(`[generate-story-video] [Wan 3.0 Prime] 视频生成中...`, { taskId, status: taskStatus })
+        }
+      }
+
+    } catch (queryError) {
+      console.error(`[generate-story-video] [Wan 3.0 Prime] 查询出错:`, queryError)
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    retryCount++
+  }
+
+  console.error(`[generate-story-video] [Wan 3.0 Prime] 轮询超时:`, { taskId })
   return { success: false, error: "Video generation timeout" }
 }
 
@@ -2089,17 +2359,17 @@ export async function POST(request: NextRequest) {
         const seconds = getDurationSeconds(duration)
         const videoModel = s.videoModel || body.videoModel
         const videoStyle = s.videoStyle || body.videoStyle
-        const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'wan27', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
+        const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'wan30', 'wan30Prime', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
         const styleFallback = !effectiveModel
           ? (videoStyle === 'anime' ? 'seedance2Fast' : (videoStyle === 'ads' ? 'seedance2' : (videoStyle && videoStyle !== 'auto' ? 'veo31Fast' : 'veo31Fast')))
           : null
         const routeTo = effectiveModel || styleFallback || 'veo31Fast'
-        // Seedance 2.5: 9积分/s, Seedance 2.0 Mini: 1.5积分/s, Veo 3.1 Lite/Gemini Omni: 1积分/s, Seedance 2.0/Veo 3.1 Quality: 3积分/s, HappyHorse: 2积分/s, MiniMax H3: 2.5积分/s, 其他: 2积分/s
+        // Seedance 2.5: 9积分/s, Seedance 2.0 Mini: 1.5积分/s, Veo 3.1 Lite/Gemini Omni: 1积分/s, Seedance 2.0/Veo 3.1 Quality/Wan 3.0: 3积分/s, Wan 3.0 Prime: 4积分/s, HappyHorse: 2积分/s, MiniMax H3: 2.5积分/s, 其他: 2积分/s
         const pps = routeTo === 'seedance25'
           ? 9
           : (routeTo === 'seedance2Mini'
             ? 1.5
-            : (routeTo === 'seedance2' ? 3 : (routeTo === 'veo31Lite' ? 1 : (routeTo === 'veo31Quality' ? 3 : (routeTo === 'happyHorse' ? 2 : (routeTo === 'geminiOmni' ? 1 : (routeTo === 'minimaxH3' ? 2.5 : 2)))))))
+            : (routeTo === 'seedance2' ? 3 : (routeTo === 'veo31Lite' ? 1 : (routeTo === 'veo31Quality' ? 3 : (routeTo === 'wan30' ? 3 : (routeTo === 'wan30Prime' ? 4 : (routeTo === 'happyHorse' ? 2 : (routeTo === 'geminiOmni' ? 1 : (routeTo === 'minimaxH3' ? 2.5 : 2)))))))))
         totalRequiredPoints += seconds * pps
       }
 
@@ -2131,7 +2401,7 @@ export async function POST(request: NextRequest) {
         const duration = s.duration || '8s'
         const videoModel = s.videoModel || body.videoModel
         const videoStyle = s.videoStyle || body.videoStyle
-        const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'wan27', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
+        const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'wan30', 'wan30Prime', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
         const styleFallback = !effectiveModel
           ? (videoStyle === 'anime' ? 'seedance2Fast' : (videoStyle === 'ads' ? 'seedance2' : (videoStyle && videoStyle !== 'auto' ? 'veo31Fast' : 'veo31Fast')))
           : null
@@ -2143,7 +2413,8 @@ export async function POST(request: NextRequest) {
             'seedance2Mini': 'Seedance 2.0 Mini',
             'seedance2': 'Seedance 2.0',
             'kling3': 'Kling 3.0',
-            'wan27': 'Wan 2.7',
+            'wan30': 'Wan 3.0',
+            'wan30Prime': 'Wan 3.0 Prime',
             'veo31Lite': 'Veo 3.1 Lite',
             'veo31Quality': 'Veo 3.1 Quality',
             'happyHorse': 'HappyHorse',
@@ -2166,7 +2437,7 @@ export async function POST(request: NextRequest) {
         const sceneAudioUrls = s.audioUrls || body.audioUrls
 
         // 非Veo模型（包括 Gemini Omni、Seedance 2.5）仍然需要 imageUrl
-        if ((routeTo === 'seedance25' || routeTo === 'seedance2Fast' || routeTo === 'seedance2Mini' || routeTo === 'seedance2' || routeTo === 'kling3' || routeTo === 'wan27' || routeTo === 'happyHorse' || routeTo === 'geminiOmni' || routeTo === 'minimaxH3') && !imageUrl.trim()) {
+        if ((routeTo === 'seedance25' || routeTo === 'seedance2Fast' || routeTo === 'seedance2Mini' || routeTo === 'seedance2' || routeTo === 'kling3' || routeTo === 'wan30' || routeTo === 'wan30Prime' || routeTo === 'happyHorse' || routeTo === 'geminiOmni' || routeTo === 'minimaxH3') && !imageUrl.trim()) {
           results.push({ sceneId, error: 'Missing imageUrl' })
           continue
         }
@@ -2217,17 +2488,17 @@ export async function POST(request: NextRequest) {
     const sceneIndex = body.sceneIndex
     const sceneId = body.sceneId
     const durationSeconds = getDurationSeconds(duration)
-    const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'happyHorse', 'wan27', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
+    const effectiveModel = ['seedance25', 'seedance2Fast', 'seedance2Mini', 'seedance2', 'kling3', 'veo31Fast', 'veo31Lite', 'veo31Quality', 'happyHorse', 'wan30', 'wan30Prime', 'geminiOmni', 'minimaxH3'].includes(videoModel || '') ? videoModel : null
     const styleFallback = !effectiveModel
       ? (videoStyle === 'anime' ? 'seedance2Fast' : (videoStyle === 'ads' ? 'seedance2' : (videoStyle && videoStyle !== 'auto' ? 'veo31Fast' : 'veo31Fast')))
       : null
     const routeTo = effectiveModel || styleFallback || 'veo31Fast'
-    // Seedance 2.5: 9积分/s, Seedance 2.0 Mini: 1.5积分/s, Veo 3.1 Lite/Gemini Omni: 1积分/s, Seedance 2.0/Veo 3.1 Quality: 3积分/s, HappyHorse: 2积分/s, MiniMax H3: 2.5积分/s, 其他: 2积分/s
+    // Seedance 2.5: 9积分/s, Seedance 2.0 Mini: 1.5积分/s, Veo 3.1 Lite/Gemini Omni: 1积分/s, Seedance 2.0/Veo 3.1 Quality/Wan 3.0: 3积分/s, Wan 3.0 Prime: 4积分/s, HappyHorse: 2积分/s, MiniMax H3: 2.5积分/s, 其他: 2积分/s
     const pointsPerSecond = routeTo === 'seedance25'
       ? 9
       : (routeTo === 'seedance2Mini'
         ? 1.5
-        : (routeTo === 'seedance2' ? 3 : (routeTo === 'veo31Lite' ? 1 : (routeTo === 'veo31Quality' ? 3 : (routeTo === 'happyHorse' ? 2 : (routeTo === 'geminiOmni' ? 1 : (routeTo === 'minimaxH3' ? 2.5 : 2)))))))
+        : (routeTo === 'seedance2' ? 3 : (routeTo === 'veo31Lite' ? 1 : (routeTo === 'veo31Quality' ? 3 : (routeTo === 'wan30' ? 3 : (routeTo === 'wan30Prime' ? 4 : (routeTo === 'happyHorse' ? 2 : (routeTo === 'geminiOmni' ? 1 : (routeTo === 'minimaxH3' ? 2.5 : 2)))))))))
     const requiredPoints = Math.round(durationSeconds * pointsPerSecond)
     const getModelName = (model: string) => {
       const names: Record<string, string> = {
@@ -2236,7 +2507,8 @@ export async function POST(request: NextRequest) {
         'seedance2Mini': 'Seedance 2.0 Mini',
         'seedance2': 'Seedance 2.0',
         'kling3': 'Kling 3.0',
-        'wan27': 'Wan 2.7',
+        'wan30': 'Wan 3.0',
+            'wan30Prime': 'Wan 3.0 Prime',
         'veo31Lite': 'Veo 3.1 Lite',
         'veo31Quality': 'Veo 3.1 Quality',
         'happyHorse': 'HappyHorse',

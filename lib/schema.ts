@@ -299,7 +299,7 @@ export const videoProjects = pgTable('video_projects', {
   duration: text('duration').default('auto'),        // 时长
   // 视频风格：auto/anime/hollywood/ads
   videoStyle: text('videoStyle'),
-  // 视频模型：auto/veo31Fast/veo31Lite/veo31Quality/seedance2Fast/seedance2Mini/seedance2/kling3/wan27/minimaxH3
+  // 视频模型：auto/veo31Fast/veo31Lite/veo31Quality/seedance2Fast/seedance2Mini/seedance2/kling3/wan30/wan30Prime/minimaxH3
   videoModel: text('videoModel').default('auto'),
   // 生成模式：auto/first-last-frame
   generationMode: text('generationMode').default('auto'),

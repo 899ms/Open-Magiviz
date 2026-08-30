@@ -6885,10 +6885,11 @@ export function AIFunction({
     seedance2: "videoModelSeedance2",
     kling3: "videoModelKling3",
     happyHorse: "videoModelHappyHorse",
-    wan27: "videoModelWan27",
+    wan30: "videoModelWan30",
+    wan30Prime: "videoModelWan30Prime",
     minimaxH3: "videoModelMinimaxH3"
   }
-  const [videoModel, setVideoModel] = useState<string>("auto") // auto/veo31Fast/veo31Lite/veo31Quality/geminiOmni/seedance25/seedance2Fast/seedance2Mini/seedance2/kling3/happyHorse/wan27/minimaxH3
+  const [videoModel, setVideoModel] = useState<string>("auto") // auto/veo31Fast/veo31Lite/veo31Quality/geminiOmni/seedance25/seedance2Fast/seedance2Mini/seedance2/kling3/happyHorse/wan30/wan30Prime/minimaxH3
   const [generationMode, setGenerationMode] = useState<string>("auto") // auto/first-last-frame
 
   // 上传视频/音频时，强制只允许 seedance2 / seedance2Fast / seedance2Mini / seedance25；当前模型不兼容则自动切换
@@ -7423,7 +7424,8 @@ export function AIFunction({
                               { key: "seedance2", label: t(videoModelMap.seedance2 as any) },
                               { key: "kling3", label: t(videoModelMap.kling3 as any) },
                               { key: "happyHorse", label: t(videoModelMap.happyHorse as any) },
-                              { key: "wan27", label: t(videoModelMap.wan27 as any) },
+                              { key: "wan30", label: t(videoModelMap.wan30 as any) },
+                              { key: "wan30Prime", label: t(videoModelMap.wan30Prime as any) },
                               { key: "minimaxH3", label: t(videoModelMap.minimaxH3 as any) },
                             ].map((item) => {
                               const disabled = !allowed(item.key)
